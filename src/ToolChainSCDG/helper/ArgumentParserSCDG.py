@@ -89,6 +89,11 @@ class ArgumentParserSCDG:
             action="store_true",
         )
         self.group.add_argument(
+            "--symnav",
+            help="Turn on SymNav to visually assist the symbolic execution (default : False)",
+            action="store_true",
+        )
+        self.group.add_argument(
             "--not_ignore_zero",
             help="Do we ignore zero when building graph ? (default : Discard zero)",
             action="store_true",

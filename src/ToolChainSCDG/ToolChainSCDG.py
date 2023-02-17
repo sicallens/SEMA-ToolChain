@@ -48,6 +48,53 @@ except:
 import angr
 import claripy
 
+#SYMNAV
+import os
+import eel
+import sys
+import r2pipe
+import logging
+from optparse import OptionParser
+from utility.cfg_loader import compute_cfg
+from angr_wrapper import AngrWrapper
+from utility import util
+import IPython
+
+SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+WEB_DIR = os.path.join(SCRIPT_DIR, "web")
+DATA_DIR = os.path.join(WEB_DIR, "data")
+JSON_DIR = os.path.join(DATA_DIR, "json_data")
+
+sys.setrecursionlimit(100000)
+
+aw = None
+
+@eel.expose
+def prune_tree(filter_opts, commit):
+    global aw
+    if aw is None: return {}
+
+    res = aw.apply_filters(filter_opts, commit)
+    return res
+
+@eel.expose
+def continue_exploration(filter_opts, cont_data):
+    global aw
+    if aw is None: return {}
+
+    aw.apply_filters(filter_opts, True)
+    aw.run(
+        10000,
+        time_treshold=int(cont_data["time"]),
+        mem_treshold=int(cont_data["memory"])
+    )
+
+    # dummy, linearize tree in dict
+    res = aw.apply_filters([])
+    return res
+
+#END_SYMNAV
+
 MEMORY_PROFILING = False
 
 if MEMORY_PROFILING:
@@ -249,7 +296,6 @@ class ToolChainSCDG:
 
         # TODO : Maybe useless : Try to directly go into main (optimize some binary in windows) 
         r = r2pipe.open(self.inputs)
-        out_r2 = r.cmd('f ~sym._main')
         out_r2 = r.cmd('f ~sym._main')   
         addr_main = proj.loader.find_symbol("main")
         if addr_main and self.fast_main:
@@ -265,6 +311,16 @@ class ToolChainSCDG:
                 pass
         else:
             addr = None
+
+        #SYMNAV
+        if args.symnav:
+            global aw
+            if r.cmdj("iIj")["pic"]:
+                base = 0x400000
+            else:
+                base = None
+            compute_cfg(self.inputs, JSON_DIR, base)
+        #END SYMNAV
 
         # Create initial state of the binary
         # options = {angr.options.USE_SYSTEM_TIMES}
@@ -451,6 +507,26 @@ class ToolChainSCDG:
             + str(simgr)
             + "\n------------------------------"
         )
+
+        #SYMNAV
+        if args.symnav:
+            aw = AngrWrapper(proj, os.path.join(JSON_DIR, "cfg_atb.json"), smgr=simgr, starting_state=state, concretize_addresses=True)
+            aw.init_run()
+            aw.dump_symbtree(os.path.join(JSON_DIR, "symbolic_tree.json"))
+            aw.dump_leaves_info(os.path.join(JSON_DIR, "leaves.json"))
+            aw.dump_symbols(os.path.join(JSON_DIR, "symbols.json"))
+            aw.dump_coverage_loss(os.path.join(JSON_DIR, "coverage_loss.json"))
+
+            eel.init(WEB_DIR, allowed_extensions=['.js', '.html']) # initialize interface
+            web_app_options = {
+                'mode': "chrome-app",
+                'port': 8000,
+                'chromeFlags': ["--aggressive-cache-discard"]
+            }
+            eel.start('index.html', suppress_error=True, options=web_app_options) # start interface. Ctrl+c in the terminal to continue or close tab to kill
+
+            #IPython.embed() # start console python --> use "quit" to quit
+        #END_SYMNAV
 
         simgr.run()
 
