@@ -19,8 +19,8 @@ class GetModuleHandleExW(angr.SimProcedure):
             call_sim = CustomSimProcedure([], [],False)
         except Exception as e:
             from ....procedures.CustomSimProcedure import CustomSimProcedure  # TODO fix  # TODO fix
-            call_sim = CustomSimProcedure([], [],True)
-        
+            call_sim = CustomSimProcedure([], [],True, True) # TODO fix
+         
         if self.state.solver.is_true(lib_ptr == 0):
             # import pdb; pdb.set_trace()
             return self.project.loader.main_object.mapped_base
@@ -80,8 +80,5 @@ class GetModuleHandleExW(angr.SimProcedure):
 
 class GetModuleHandleExW(GetModuleHandleExW):
     def decodeString(self, ptr):
-        try:
-            lib = self.state.mem[ptr].string.concrete.decode("utf-8")
-        except:
-            lib = self.state.mem[ptr].string.concrete.decode("utf-8",errors="ignore")
+        lib = self.state.mem[ptr].string.concrete.decode("utf-8")
         return lib
