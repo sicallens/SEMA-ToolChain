@@ -782,7 +782,7 @@ system.data = (function() {
         blocksById[block.id].count += 1
         node.forkSymbols.forEach(symbolId => {
           const symbol = this.getSymbolById(symbolId)
-          blocksById[block.id][symbol.category].push(nodeId)
+            blocksById[block.id][symbol.category].push(nodeId)
         })
       }
     })
@@ -795,19 +795,21 @@ system.data = (function() {
     subTreeNodes.forEach(nodeId => {
       const node = this.getNodeById(nodeId)
       node.forkSymbols.forEach(symbolId => {
+
         if (symbolsById[symbolId] === undefined) {
-          const symbol = this.getSymbolById(symbolId)
-          let creationNode = symbol.creationNode ? this.getNodeById(symbol.creationNode) : false
-          symbolsById[symbolId] = {
-            symbolId: symbolId,
-            size: symbol.size,
-            category: symbol.category,
-            creationNode: creationNode ? creationNode.id : false,
-            creationDepth: creationNode ? creationNode.depth : false,
-            forkingNodes: []
-          }
+            const symbol = this.getSymbolById(symbolId)
+            let creationNode = symbol.creationNode ? this.getNodeById(symbol.creationNode) : false
+            symbolsById[symbolId] = {
+              symbolId: symbolId,
+              size: symbol.size,
+              category: symbol.category,
+              creationNode: creationNode ? creationNode.id : false,
+              creationDepth: creationNode ? creationNode.depth : false,
+              forkingNodes: []
+            }
         }
         symbolsById[symbolId].forkingNodes.push(nodeId)
+
       })
     })
     return Object.values(symbolsById).sort((a, b) => b.forkingNodes.length - a.forkingNodes.length)

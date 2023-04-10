@@ -1,3 +1,5 @@
+import sys
+
 from IPython import embed
 try:
     from ..utility.tree import Node, Tree
@@ -5,6 +7,7 @@ except:
     from utility.tree import Node, Tree
 import claripy
 import json
+
 
 SKIP      = 1
 SKIP_PATH = 2
@@ -194,6 +197,7 @@ class TreePruner(object):
         
         # limit fork check
         limit_child_number = False
+
         for block_id in blocks_id:
             if block_id in filter_data.max_fork:
                 filter_data.max_fork[block_id][0] -= 1
@@ -203,6 +207,16 @@ class TreePruner(object):
                     (not normal and count >= 0)
                 ):
                     limit_child_number = True
+            # Max forks for all blocks
+            # else:
+            #     filter_data.max_fork[block_id] = [1, True]
+            #     filter_data.max_fork[block_id][0] -= 1
+            #     count, normal = filter_data.max_fork[block_id]
+            #     if (
+            #         (normal and count < 0) or
+            #         (not normal and count >= 0)
+            #     ):
+            #         limit_child_number = True
 
         # recursive call to children
         new_node  = Node(node.id, node.data, node.father_id)

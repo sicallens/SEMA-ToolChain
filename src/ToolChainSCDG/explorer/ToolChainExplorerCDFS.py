@@ -25,9 +25,9 @@ class ToolChainExplorerCDFS(ToolChainExplorer):
         self.log = logging.getLogger("ToolChainExplorerCDFS")
         self.log.setLevel("INFO")
 
-    def step(self, simgr, stash="active", **kwargs):
+    def step(self, simgr, stash="active", filter_func=None, **kwargs):
         try:
-            simgr = simgr.step(stash=stash, **kwargs)
+            simgr = simgr.step(stash=stash, filter_func=filter_func, **kwargs)
         except Exception as inst:
             # TODO allow to skip sample or stop exeuction
             self.log.warning("ERROR IN STEP() - YOU ARE NOT SUPPOSED TO BE THERE !")
@@ -105,7 +105,7 @@ class ToolChainExplorerCDFS(ToolChainExplorer):
                 len(simgr.stashes["pause"]),
             )
             for m in range(moves):
-                super().take_longuest(simgr, "pause")
+                super().take_smallest(simgr, "pause")
 
         super().manage_pause(simgr)
 

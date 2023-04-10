@@ -25,7 +25,7 @@ class TreeAnalyzer(object):
         else:
             with open(address_to_block, "r") as fin:
                 self.address_to_block = json.load(fin)
-    
+
     def compute_forks(self):
         forks = dict()
         for node_id in self.symb_tree.lookup:
@@ -39,10 +39,10 @@ class TreeAnalyzer(object):
                 tmp = set()
                 for c in sac.all_objects:
                     tmp = tmp.union(set(list(c.ast.variables)))
-                
+
                 indirect = extract_indirect_inputs(lwChild.constraints, tmp)
                 tmp = tmp.union(indirect)
-                
+
                 lwState = node.data
                 addr = lwState.block_addresses[-1]
 
@@ -67,7 +67,7 @@ class TreeAnalyzer(object):
             for symbol in symbols:
                 d["symbols"].append(symbol)
             res.append(d)
-        
+
         return res
 
     def compute_visited_basic_blocks(self):
@@ -80,7 +80,7 @@ class TreeAnalyzer(object):
                     if addr not in self.tmp_dict:
                         self.tmp_dict[addr] = 1
 
-                    for addr in lwState.callstack: 
+                    for addr in lwState.callstack:
                         if addr not in self.tmp_dict:
                             self.tmp_dict[addr] = 1
             for addr in self.tmp_dict:
@@ -88,7 +88,7 @@ class TreeAnalyzer(object):
                     visited[addr] += 1
                 else:
                     visited[addr]  = 1
-        
+
         # save info in json-like struct
         added_blocks = set()  # to avoid duplicates
         res          = list()
@@ -118,6 +118,7 @@ class TreeAnalyzer(object):
         return max(visited.values())
 
     @staticmethod
+    # DEAD FUNCTION
     def compute_symbolic_pages(state):
         if state is None:
             return 0
@@ -130,11 +131,12 @@ class TreeAnalyzer(object):
             #        symbolic_pages += 1
              #       break
         return symbolic_pages
-    
+
     def compute_generated_symbols(self, path):  # improve performance
         if self.angr_wrapper is None:
             return -1
         _, node_id_to_merged_id = self.angr_wrapper.stb.simplify_symbtree()
+        #print(node_id_to_merged_id)
 
         node_to_symbol = dict()
         for symbol_name in self.angr_wrapper.symbols:
@@ -144,13 +146,13 @@ class TreeAnalyzer(object):
                 node_to_symbol[creation_node_id] = set([symbol_name])
             else:
                 node_to_symbol[creation_node_id].add(symbol_name)
-        
+
         res = 0
         for node in path:
             if node.id in node_to_symbol:
                 res += len(node_to_symbol[node.id])
         return res
-    
+
     @staticmethod
     def count_block_unique(path):
         res = set()
@@ -163,7 +165,7 @@ class TreeAnalyzer(object):
         res = list()
         i = 0
         for path in self.symb_tree.simplify().paths():
-            if not path: 
+            if not path:
                 return []
             leaf_state_weakref = path[-1].data[-1].state_weakref
             lp = dict()
@@ -174,7 +176,7 @@ class TreeAnalyzer(object):
             lp["num_constraints"] = len(path[-1].data[-1].constraints)
             lp["mapped_pages"] = path[-1].data[-1].mapped_pages
             lp["symbolic_pages"] = TreeAnalyzer.compute_symbolic_pages(leaf_state_weakref)  # leaf weakref should be good
-            lp["generated_symbols"] = 0 #self.compute_generated_symbols(path)
+            lp["generated_symbols"] = self.compute_generated_symbols(path)
             lp["num_malloc_free"] = 0
             '''reduce(
                 lambda x, y: x+y, 
@@ -198,35 +200,34 @@ class TreeAnalyzer(object):
             father_block_id = None
         else:
             father_block_id = self.address_to_block[father_id]
-        
+
         if child_block_id and father_block_id:
             insert_or_add(res, (father_block_id, child_block_id), 1)
-        
+
         for nephew in child.children:
             self.__compute_edges(nephew, child, res)
-    
+
     def compute_edges(self):
         if self.symb_tree.is_empty():
             return dict()
-        
+
         edges = dict()
         self.__compute_edges(self.symb_tree.root.children[0], self.symb_tree.root, edges)
         return edges
-    
+
     def __compute_node_count_per_edge(self, child, father, edges_list_post, edges_list_pre, visited_edges, visited_nodes, dropped_edges):
         child_id  = str(child.data.address)
-        '''ICI IL Y A UN 'LEGER' PROBLEME (FIXED?)'''
-        #father_id = str(father.data.block_addresses[-1]) if father.data else None
-        if father.data:
-            if len(father.data.block_addresses) > 0:
-                father_id = str(father.data.block_addresses[-1])
-            else:
-                father_id = None
-        else:
-            father_id = None
-        #father_id = str(father.data.block_addresses[-1]) if father.data else None
+        '''ICI IL Y A UN 'LEGER' PROBLEME (FIXED? HOOK SOLVED THE PROBLEM)'''
+        # if father.data:
+        #     if len(father.data.block_addresses) > 0:
+        #         father_id = str(father.data.block_addresses[-1])
+        #     else:
+        #         father_id = None
+        # else:
+        #     father_id = None
+        father_id = str(father.data.block_addresses[-1]) if father.data else None
         nephew_visited_edges = visited_edges.copy()
-        
+
         if child_id not in self.address_to_block:
             child_block_id  = None
         else:
@@ -235,25 +236,25 @@ class TreeAnalyzer(object):
             father_block_id = None
         else:
             father_block_id = self.address_to_block[father_id]
-        
+
         if child_block_id and father_block_id:
             nephew_visited_edges.add((father_block_id, child_block_id))
 
             # this edges is considered dropped. Return empty histogram
             if (father_block_id, child_block_id) in dropped_edges:
                 return dict()
-        
+
         # add node even if its block is not in R2
         # this is different with respect to "__compute_block_histogram_per_edge"
         nephew_visited_nodes = visited_nodes.copy()
         nephew_visited_nodes.add(child)
-        
+
         nephews_blocks = 0
         for nephew in child.children:
             nephew_blocks = self.__compute_node_count_per_edge(
                 nephew, child, edges_list_post, edges_list_pre, nephew_visited_edges, nephew_visited_nodes, dropped_edges)
             nephews_blocks += nephew_blocks
-        
+
         # count the node even if its block is not in R2
         # this is different with respect to "__compute_block_histogram_per_edge"
         my_nodes = nephews_blocks + 1
@@ -267,7 +268,7 @@ class TreeAnalyzer(object):
                     edges_list_pre[edge_id] = edges_list_pre[edge_id].union(visited_nodes)
 
         return my_nodes
-    
+
     def compute_node_count_per_edge(self, dropped_edges=set()):
         if self.symb_tree.is_empty():
             return 0, dict(), dict()
@@ -287,29 +288,29 @@ class TreeAnalyzer(object):
         node_id  = str(node.data.address)
         child_visited_blocks = visited_blocks.copy()
         child_visited_nodes  = visited_nodes.copy()
-        
+
         if node_id not in self.address_to_block:
             node_block_id = None
         else:
             node_block_id = self.address_to_block[node_id]
-        
+
         if node_block_id:
             child_visited_blocks.add(node_block_id)
 
             # this edges is considered dropped. Return empty histogram
             if node_block_id in dropped_blocks:
                 return dict()
-        
+
         # add node even if its block is not in R2
         # this is different with respect to "__compute_block_histogram_per_edge"
         child_visited_nodes.add(node)
-        
+
         children_blocks = 0
         for child in node.children:
             child_blocks = self.__compute_node_count_per_block(
                 child, nodes_list_post, nodes_list_pre, child_visited_blocks, child_visited_nodes, dropped_blocks)
             children_blocks += child_blocks
-        
+
         # count the node even if its block is not in R2
         # this is different with respect to "__compute_block_histogram_per_edge"
         my_nodes = children_blocks + 1
@@ -331,7 +332,7 @@ class TreeAnalyzer(object):
         blocks_pre  = dict()
         total_nodes = self.__compute_node_count_per_block(
             self.symb_tree.root.children[0], blocks_post, blocks_pre, set(), set(), dropped_nodes)
-        
+
         # calculate count pre
         for b in blocks_pre:
             visited = blocks_pre[b]
@@ -342,19 +343,18 @@ class TreeAnalyzer(object):
 
     def __compute_block_histogram_per_edge(self, child, father, edges_list_post, edges_list_pre, visited_edges, visited_nodes, dropped_edges):
         child_id  = str(child.data.address)
-        '''ICI IL Y A UN 'LEGER' PROBLEME (FIXED?)'''
-        # father_id = str(father.data.block_addresses[-1]) if father.data else None
-        if father.data:
-            if len(father.data.block_addresses) > 0:
-                father_id = str(father.data.block_addresses[-1])
-            else:
-                father_id = None
-        else:
-            father_id = None
-        #father_id = str(father.data.block_addresses[-1]) if father.data else None
+        '''ICI IL Y A UN 'LEGER' PROBLEME (FIXED? HOOK SOLVED THE PROBLEM)'''
+        # if father.data:
+        #     if len(father.data.block_addresses) > 0:
+        #         father_id = str(father.data.block_addresses[-1])
+        #     else:
+        #         father_id = None
+        # else:
+        #     father_id = None
+        father_id = str(father.data.block_addresses[-1]) if father.data else None
         nephew_visited_edges = visited_edges.copy()
         nephew_visited_nodes = visited_nodes.copy()
-        
+
         # find out whether the addresses of child and father are in R2 CFG
         # they cannot be there due to fake angr blocks (simprocedures)
         if child_id not in self.address_to_block:
@@ -365,17 +365,17 @@ class TreeAnalyzer(object):
             father_block_id = None
         else:
             father_block_id = self.address_to_block[father_id]
-        
+
         if child_block_id and father_block_id:
             nephew_visited_edges.add((father_block_id, child_block_id))
 
             # this edges is considered dropped. Return empty histogram
             if (father_block_id, child_block_id) in dropped_edges:
                 return dict()
-        
+
         if child_block_id:
             nephew_visited_nodes.add(child)
-        
+
         # combine nephew histograms (if any)
         nephews_histogram = dict()
         for nephew in child.children:
@@ -414,7 +414,7 @@ class TreeAnalyzer(object):
         edges_pre  = dict()
         root_histogram = self.__compute_block_histogram_per_edge(
             self.symb_tree.root.children[0], self.symb_tree.root, edges_post, edges_pre, set(), set(), dropped_edges)
-        
+
         # calculate histogram pre
         for edge in edges_pre:
             visited = edges_pre[edge]
@@ -430,7 +430,7 @@ class TreeAnalyzer(object):
             insert_or_add(root_histogram, self.address_to_block[first_node_addr], 1)
 
         return root_histogram, edges_post, edges_pre
-    
+
     def __find_first_blocks(self, node):
         node_id = str(node.data.address)
         res = set()
@@ -450,14 +450,14 @@ class TreeAnalyzer(object):
         node_id  = str(node.data.address)
         child_visited_nodes  = visited_nodes.copy()
         child_visited_blocks = visited_blocks.copy()
-        
+
         # find out whether the addresses of child and father are in R2 CFG
         # they cannot be there due to fake angr blocks (simprocedures)
         if node_id not in self.address_to_block:
             node_block_id  = None
         else:
             node_block_id = self.address_to_block[node_id]
-        
+
         if node_block_id:
             child_visited_nodes.add(node)
             child_visited_blocks.add(node_block_id)
@@ -465,7 +465,7 @@ class TreeAnalyzer(object):
             # this edges is considered dropped. Return empty histogram
             if node_block_id in dropped_nodes:
                 return dict()
-        
+
         # combine nephew histograms (if any)
         children_histogram = dict()
         for child in node.children:
@@ -495,16 +495,16 @@ class TreeAnalyzer(object):
         # return histogram. Copy it because it can be in edges_list_post
         return dict(my_histogram)
 
-    
+
     def compute_block_histogram_per_block(self, dropped_nodes=set()):
         if self.symb_tree.is_empty():
             return dict(), dict(), dict()
-        
+
         blocks_histogram_post = dict()
         blocks_histogram_pre  = dict()
         root_histogram = self.__compute_block_histogram_per_block(
             self.symb_tree.root.children[0], blocks_histogram_post, blocks_histogram_pre, set(), set(), dropped_nodes)
-        
+
         # calculate histogram pre
         for b in blocks_histogram_pre:
             visited = blocks_histogram_pre[b]
@@ -513,9 +513,9 @@ class TreeAnalyzer(object):
                 block_id = self.address_to_block[str(node.data.address)]
                 insert_or_add(new, block_id, 1)
             blocks_histogram_pre[b] = new
-        
+
         return root_histogram, blocks_histogram_post, blocks_histogram_pre
-    
+
     def compute_coverage_loss_per_edge_black(self, dropped_edges=set()):
         res = list()
         root_hist, edges_hist, _ = self.compute_block_histogram_per_edge(dropped_edges)
@@ -547,10 +547,10 @@ class TreeAnalyzer(object):
         for edge in edges_hist_post:
             hist_post = edges_hist_post[edge]
             hist_pre  = edges_hist_pre[edge]
-            
+
             blocks = set(hist_post.keys()).union(set(hist_pre.keys()))
             drop   = total_nodes - (edges_node_kept_post[edge] + edges_node_kept_pre[edge])
-            
+
             lost_blocks = len(set(root_hist.keys()) - blocks)
             res.append({
                 "src": edge[0],
@@ -560,7 +560,7 @@ class TreeAnalyzer(object):
             })
 
         return res
-    
+
     def compute_coverage_loss_per_block_black(self, dropped_edges=set()):
         res = list()
         root_hist, blocks_hist, _ = self.compute_block_histogram_per_block(dropped_edges)
@@ -580,7 +580,7 @@ class TreeAnalyzer(object):
                 "tree_reduction": round(drop * 100.0 / total_nodes, 2)
             })
 
-        return res    
+        return res
     def compute_coverage_loss_per_block_white(self, dropped_edges=set()):
         res = list()
         root_hist, blocks_hist_post, blocks_hist_pre = self.compute_block_histogram_per_block(dropped_edges)
@@ -590,10 +590,10 @@ class TreeAnalyzer(object):
         for block in blocks_hist_post:
             hist_post = blocks_hist_post[block]
             hist_pre  = blocks_hist_pre[block]
-            
+
             blocks = set(hist_post.keys()).union(set(hist_pre.keys()))
             drop   = total_nodes - (blocks_node_kept_post[block] + blocks_node_kept_pre[block])
-            
+
             lost_blocks = len(set(root_hist.keys()) - blocks)
             res.append({
                 "block_id": block,
@@ -602,7 +602,7 @@ class TreeAnalyzer(object):
             })
 
         return res
-    
+
     def compute_coverage_loss(self):
         edges_white  = self.compute_coverage_loss_per_edge_white()
         edges_black  = self.compute_coverage_loss_per_edge_black()
@@ -619,12 +619,12 @@ class TreeAnalyzer(object):
                 "black": blocks_black
             }
         }
-    
+
     @staticmethod
     def compute_fork_symbols(node):
         if len(node.children) <= 1:
             return list()
-        
+
         symbols = set()
         for child in node.children:
             lwState = child.data
@@ -635,11 +635,11 @@ class TreeAnalyzer(object):
 
             for c in sac.all_objects:
                 symbols = symbols.union(set(list(c.ast.variables)))
-            
+
             indirect = extract_indirect_inputs(lwState.constraints, symbols)
             symbols = symbols.union(indirect)
         return list(symbols)
-    
+
     def get_blocks_state(self, state):
         blocks = []
         for addr in state.block_addresses:
@@ -648,10 +648,10 @@ class TreeAnalyzer(object):
                 if block_id not in blocks:
                     blocks.append(block_id)
         return blocks
-    
+
     def linearize_tree(self, simplify=True):
         dst = list()
-        
+
         if simplify:
             tree = self.symb_tree.simplify()
         else:
@@ -663,7 +663,7 @@ class TreeAnalyzer(object):
                 states = [node.data]
             else:
                 states = node.data
-            
+
             node_json["id"]        = node.id
             node_json["father_id"] = node.father_id
             node_json["blocks"]    = list()
@@ -678,14 +678,14 @@ class TreeAnalyzer(object):
             for child in node.children:
                 node_json["children"].append(child.id)
             node_json["fork_symbols"] = TreeAnalyzer.compute_fork_symbols(node)
-            
+
             dst.append(node_json)
         return dst
 
     def to_json(self, struct, out_path):
         with open(out_path, "w") as fout:
             json.dump(struct, fout)
-    
+
     def colors_to_csv(self, out_path, fork_or_visited):
         struct = None
         if fork_or_visited == "fork":
@@ -698,7 +698,7 @@ class TreeAnalyzer(object):
         max_count = 0
         for el in struct:
             max_count = max_count if max_count >= el["count"] else el["count"]
-        
+
         with open(out_path, "w") as fout:
             for el in struct:
                 # trick. Block id = B_%addr%

@@ -540,7 +540,7 @@ system.cfg = (new class {
                               let numFork = d3.select(`#${v.id}-${f.type}-numFork`).property('value')
                               let inverted = d3.select(`#${v.id}-${f.type}-inverted`).property('checked')
                               let forkChoice = d3.select(`#${v.id}-${f.type}-branch`).property('value')
-                              if (forkChoice === 'empty') forkChoice = null 
+                              if (forkChoice === 'empty') forkChoice = null
                               f.call(numFork, inverted, forkChoice)
                             })
                           .append('i')

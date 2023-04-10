@@ -29,6 +29,10 @@ system.layout = (function() {
         if (memory === '') memory = 0
         system.api.continueExploration(time, memory)
     })
+
+    d3.select("#stop-limit").on("click", () => {
+        eel.stop_exploration()
+    })
     /*
     */
     this.filtersPanel = (function(){
@@ -129,7 +133,7 @@ system.layout = (function() {
                 .style("margin-left", parseInt(-spinnerDimension/2) + "px")
                 .style("border-radius", "50%")
                 .style("border", "3px solid #aaa")
-                .style("border-top-color", "#007BFF")
+                .style("border-top-color", "#ff581d") //007BFF
                 .style("animation", "spin 1s linear infinite");
 
             d3.select("head").append("style").text("@keyframes spin {to {transform: rotate(360deg);}}");

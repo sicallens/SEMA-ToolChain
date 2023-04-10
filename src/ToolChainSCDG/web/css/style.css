@@ -7,7 +7,7 @@ body {
     --component-title-txt-color: #212529;
     
     --main-txt-color: #212529; 
-    --navbar-bg-color: #2962ff;
+    --navbar-bg-color: #ff581d; /*2962ff*/
     --navbar-txt-color: white;
 
     --cfg-node-stroke: #212529;
@@ -18,7 +18,7 @@ body {
     --cfg-history-node-color: #333333;
 
     --cfg-history-bg-current: transparent;
-    --cfg-history-border-current: #2962ff;
+    --cfg-history-border-current: #ff581d;
     --cfg-history-bg-hover: whitesmoke;
 
     --tooltip-bg-color: #333333;
@@ -260,6 +260,7 @@ main > .right {
     display: flex;
     flex-direction: column;
     font-size: 0.8em;
+    accent-color: #ff581d;
 }
 #exp-btns {
     position: absolute;

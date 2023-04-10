@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import logging
 import sys
+import time
+
 from .ToolChainExplorer import ToolChainExplorer
 
 
@@ -43,9 +45,9 @@ class ToolChainExplorerDFS(ToolChainExplorer):
 
         simgr.move(source_stash, "active", lambda s: s.globals["id"] == id_to_move)
 
-    def step(self, simgr, stash="active", **kwargs):
+    def step(self, simgr, stash="active", filter_func=None, **kwargs):
         try:
-            simgr = simgr.step(stash=stash, **kwargs)
+            simgr = simgr.step(stash=stash, filter_func=filter_func, **kwargs)
         except Exception as inst:
             self.log.warning("ERROR IN STEP() - YOU ARE NOT SUPPOSED TO BE THERE !")
             # self.log.warning(type(inst))    # the exception instance
@@ -116,5 +118,7 @@ class ToolChainExplorerDFS(ToolChainExplorer):
         super().excessed_loop_to_active(simgr)
 
         super().time_evaluation(simgr)
+
+        #print(time.time())
 
         return simgr

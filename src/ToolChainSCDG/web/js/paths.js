@@ -13,9 +13,9 @@ system.paths = (new class {
         numBlocksUnique: { title: 'Unique Blocks', type: 'number' },
         maxRepBlock: { title: 'Rep. Block', type: 'number' },
         numConstraints: { title: 'Constraints', type: 'number' },
-        mappedPages: { title: 'Pages', type: 'number' }//,
+        mappedPages: { title: 'Pages', type: 'number' },
         //symbolicPages: { title: 'Symb. Pages', type: 'number' },
-        //generatedSymbols: { title: 'Gen. Symbols', type: 'number' },
+        generatedSymbols: { title: 'Gen. Symbols', type: 'number' }
         //numMallocFree: { title: 'Malloc Free', type: 'number' }
       })
       .margin({

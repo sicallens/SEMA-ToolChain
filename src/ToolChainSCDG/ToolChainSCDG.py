@@ -6,9 +6,9 @@ import json as json_dumper
 from builtins import open as open_file
 import time
 import r2pipe
-#from tkinter import E
+# from tkinter import E
 
-# from submodules.claripy import claripy # TODO 
+# from submodules.claripy import claripy # TODO
 import claripy
 import monkeyhex  # this will format numerical results in hexadecimal
 
@@ -26,6 +26,15 @@ try:
     from .helper.GraphBuilder import *
     from .procedures.CustomSimProcedure import *
     from .plugin.PluginEnvVar import *
+    from .plugin.PluginLocaleInfo import *
+    from .plugin.PluginRegistery import *
+    from .plugin.PluginHooks import *
+    from .plugin.PluginWideChar import *
+    from .plugin.PluginResources import *
+    from .plugin.PluginEvasion import *
+    from .plugin.PluginCommands import *
+    from .plugin.PluginThread import *
+    from .plugin.PluginIoC import *
     from .explorer.ToolChainExplorerDFS import ToolChainExplorerDFS
     from .explorer.ToolChainExplorerCDFS import ToolChainExplorerCDFS
     from .explorer.ToolChainExplorerBFS import ToolChainExplorerBFS
@@ -37,18 +46,27 @@ except:
     from helper.GraphBuilder import *
     from procedures.CustomSimProcedure import *
     from plugin.PluginEnvVar import *
+    from plugin.PluginThread import *
+    from plugin.PluginLocaleInfo import *
+    from plugin.PluginRegistery import *
+    from plugin.PluginHooks import *
+    from plugin.PluginWideChar import *
+    from plugin.PluginResources import *
+    from plugin.PluginEvasion import *
+    from plugin.PluginCommands import *
+    from plugin.PluginIoC import *
     from explorer.ToolChainExplorerDFS import ToolChainExplorerDFS
     from explorer.ToolChainExplorerCDFS import ToolChainExplorerCDFS
     from explorer.ToolChainExplorerBFS import ToolChainExplorerBFS
     from explorer.ToolChainExplorerCBFS import ToolChainExplorerCBFS
     from clogging.CustomFormatter import CustomFormatter
-    from clogging.LogBookFormatter import * # TODO
+    from clogging.LogBookFormatter import *  # TODO
     from helper.ArgumentParserSCDG import ArgumentParserSCDG
 
 import angr
 import claripy
 
-#SYMNAV
+# SYMNAV
 import os
 import eel
 import sys
@@ -57,6 +75,7 @@ import logging
 from optparse import OptionParser
 from utility.cfg_loader import compute_cfg
 from angr_wrapper import AngrWrapper
+import signal
 from utility import util
 import IPython
 
@@ -65,9 +84,8 @@ WEB_DIR = os.path.join(SCRIPT_DIR, "web")
 DATA_DIR = os.path.join(WEB_DIR, "data")
 JSON_DIR = os.path.join(DATA_DIR, "json_data")
 
-sys.setrecursionlimit(100000)
-
 aw = None
+
 
 @eel.expose
 def prune_tree(filter_opts, commit):
@@ -77,11 +95,11 @@ def prune_tree(filter_opts, commit):
     res = aw.apply_filters(filter_opts, commit)
     return res
 
+
 @eel.expose
 def continue_exploration(filter_opts, cont_data):
     global aw
     if aw is None: return {}
-
     aw.apply_filters(filter_opts, True)
     aw.run(
         10000,
@@ -93,43 +111,50 @@ def continue_exploration(filter_opts, cont_data):
     res = aw.apply_filters([])
     return res
 
-#END_SYMNAV
+@eel.expose
+def stop_exploration():
+    signal.raise_signal(signal.SIGINT)
+# END_SYMNAV
 
 MEMORY_PROFILING = False
 
 if MEMORY_PROFILING:
     # TODO take snapshot in build_scdgs()
-    import tracemalloc 
+    import tracemalloc
+
     memory_snapshots = []
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 class ToolChainSCDG:
     """
     TODO
     """
+
     def __init__(
-        self,
-        timeout=600,
-        max_end_state=600,
-        max_step=50000,
-        timeout_tab=[1200, 2400, 3600],
-        jump_it=1,
-        loop_counter_concrete=102400,
-        jump_dict={},
-        jump_concrete_dict={},
-        max_simul_state=5,
-        max_in_pause_stach=500,
-        fast_main=True,
-        force_symbolique_return=False,
-        string_resolv=True,
-        print_on=False,
-        print_sm_step=False,
-        print_syscall=False,
-        debug_error=False,
-        debug_string=False,
-        is_from_tc = False,
-        is_fl = False
+            self,
+            timeout=600,
+            max_end_state=600,
+            max_step=50000,
+            timeout_tab=[1200, 2400, 3600],
+            jump_it=1,
+            loop_counter_concrete=102400,
+            jump_dict={},
+            jump_concrete_dict={},
+            max_simul_state=5,
+            max_in_pause_stach=500,
+            fast_main=True,
+            force_symbolique_return=False,
+            string_resolv=True,
+            print_on=False,
+            print_sm_step=False,
+            print_syscall=False,
+            debug_error=False,
+            debug_string=False,
+            is_from_tc=False,
+            is_from_web=False,
+            is_fl=False
     ):
         self.start_time = time.time()
         self.timeout = timeout  # In seconds
@@ -160,7 +185,7 @@ class ToolChainSCDG:
 
         self.scdg = []
         self.scdg_fin = []
-        
+
         logging.getLogger("angr").setLevel("WARNING")
         logging.getLogger('claripy').setLevel('WARNING')
 
@@ -180,9 +205,10 @@ class ToolChainSCDG:
         self.familly = None
 
         self.call_sim = CustomSimProcedure(
-            self.scdg, self.scdg_fin, 
-            string_resolv=string_resolv, print_on=print_on, 
-            print_syscall=print_syscall, is_from_tc=is_from_tc
+            self.scdg, self.scdg_fin,
+            string_resolv=string_resolv, print_on=print_on,
+            print_syscall=print_syscall, is_from_tc=is_from_tc,
+            is_from_web=is_from_web
         )
         self.eval_time = False
 
@@ -194,7 +220,7 @@ class ToolChainSCDG:
         self.call_sim.system_call_table.clear()
 
         self.log.info(args)
-        
+
         if not is_fl:
             exp_dir = args.exp_dir
             nargs = args.n_args
@@ -224,7 +250,7 @@ class ToolChainSCDG:
         except:
             os.makedirs(exp_dir)
 
-        if exp_dir != "output/save-SCDG/"+self.familly+"/":
+        if exp_dir != "output/save-SCDG/" + self.familly + "/":
             setup = open_file(exp_dir + "setup.txt", "w")
             setup.write(str(self.jump_it) + "\n")
             setup.write(str(self.loop_counter_concrete) + "\n")
@@ -239,7 +265,7 @@ class ToolChainSCDG:
         else:
             nameFileShort = self.inputs
 
-        title = "--- Building SCDG of " + self.familly  +"/" + nameFileShort  + " ---"
+        title = "--- Building SCDG of " + self.familly + "/" + nameFileShort + " ---"
         self.log.info("\n" + "-" * len(title) + "\n" + title + "\n" + "-" * len(title))
 
         #####################################################
@@ -255,7 +281,7 @@ class ToolChainSCDG:
             use_sim_procedures=True,
             load_options={
                 "auto_load_libs": True
-            },  
+            },
             # ,load_options={"auto_load_libs":False}
             support_selfmodifying_code=True,
             # arch="",
@@ -294,25 +320,25 @@ class ToolChainSCDG:
         else:
             self.call_sim.system_call_table = self.call_sim.linux_loader.load_table(proj)
 
-        # TODO : Maybe useless : Try to directly go into main (optimize some binary in windows) 
+        # TODO : Maybe useless : Try to directly go into main (optimize some binary in windows)
         r = r2pipe.open(self.inputs)
-        out_r2 = r.cmd('f ~sym._main')   
+        out_r2 = r.cmd('f ~sym._main')
         addr_main = proj.loader.find_symbol("main")
         if addr_main and self.fast_main:
             addr = addr_main.rebased_addr
         elif out_r2:
-            addr= None
+            addr = None
             try:
                 iter = out_r2.split("\n")
                 for s in iter:
                     if s.endswith("._main"):
-                        addr = int(s.split(" ")[0],16)
+                        addr = int(s.split(" ")[0], 16)
             except:
                 pass
         else:
             addr = None
 
-        #SYMNAV
+        # SYMNAV
         if args.symnav:
             global aw
             if r.cmdj("iIj")["pic"]:
@@ -320,7 +346,7 @@ class ToolChainSCDG:
             else:
                 base = None
             compute_cfg(self.inputs, JSON_DIR, base)
-        #END SYMNAV
+        # END SYMNAV
 
         # Create initial state of the binary
         # options = {angr.options.USE_SYSTEM_TIMES}
@@ -333,7 +359,7 @@ class ToolChainSCDG:
         options.add(angr.options.SIMPLIFY_CONSTRAINTS)
         # options.add(angr.options.SYMBOLIC_WRITE_ADDRESSES)
         options.add(angr.options.SYMBOLIC_INITIAL_VALUES)
-        if self.debug_error: # TODO better integration
+        if self.debug_error:  # TODO better integration
             pass
             # options.add(angr.options.TRACK_JMP_ACTIONS)
             # options.add(angr.options.TRACK_CONSTRAINT_ACTIONS)
@@ -351,21 +377,34 @@ class ToolChainSCDG:
             "heap", angr.state_plugins.heap.heap_ptmalloc.SimHeapPTMalloc()
         )
         # For environment variable mainly
-        state.register_plugin( 
+        state.register_plugin(
             "plugin_env_var", PluginEnvVar()
-        )  
+        )
 
         # Memory block to store environment variable
         state.plugin_env_var.env_block = state.heap.malloc(32767)
         for i in range(32767):
             c = state.solver.BVS("c_env_block{}".format(i), 8)
             state.memory.store(state.plugin_env_var.env_block + i, c)
-        if os_obj == "windows" :
+        if os_obj == "windows":
             ComSpec = "ComSpec=C:\Windows\system32\cmd.exe\0".encode("utf-8")
             ComSpec_bv = state.solver.BVV(ComSpec)
             state.memory.store(state.plugin_env_var.env_block, ComSpec_bv)
             state.plugin_env_var.env_var["COMSPEC"] = "C:\Windows\system32\cmd.exe\0"
         state.plugin_env_var.expl_method = self.expl_method
+
+        state.register_plugin("plugin_locale_info", PluginLocaleInfo())
+        state.plugin_locale_info.setup_plugin()
+
+        state.register_plugin("plugin_resources", PluginResources())
+        state.plugin_resources.setup_plugin()
+
+        state.register_plugin("plugin_widechar", PluginWideChar())
+
+        state.register_plugin("plugin_registery", PluginRegistery())
+        state.plugin_registery.setup_plugin()
+
+        state.register_plugin("plugin_thread", PluginThread(self, exp_dir, proj, nameFileShort, options, args))
 
         # Constraint arguments to ASCII
         for i in range(1, len(args_binary)):
@@ -393,7 +432,7 @@ class ToolChainSCDG:
 
         if os_obj == "windows":
             self.call_sim.loadlibs(proj)
-        
+
         self.call_sim.custom_hook_static(proj)
 
         if os_obj != "windows":
@@ -421,7 +460,7 @@ class ToolChainSCDG:
         # Improved Break point for debugging purpose for specific read/write/instructions
         if self.debug_error:
             pass
-            #state.inspect.b('instruction',when=angr.BP_BEFORE, action=self.call_sim.debug_instr)
+            # state.inspect.b('instruction',when=angr.BP_BEFORE, action=self.call_sim.debug_instr)
             # state.inspect.b('mem_read',when=angr.BP_BEFORE, action=self.call_sim.debug_read)
             # state.inspect.b('mem_write',when=angr.BP_BEFORE, action=self.call_sim.debug_write)
 
@@ -431,10 +470,39 @@ class ToolChainSCDG:
         simgr.active[0].globals["JumpExcedeed"] = False
         simgr.active[0].globals["JumpTable"] = {}
         simgr.active[0].globals["n_steps"] = 0
+        simgr.active[0].globals["n_forks"] = 0
         simgr.active[0].globals["last_instr"] = 0
         simgr.active[0].globals["counter_instr"] = 0
         simgr.active[0].globals["loaded_libs"] = {}
         simgr.active[0].globals["addr_call"] = []
+        simgr.active[0].globals["loop"] = 0
+        simgr.active[0].globals["crypt_algo"] = 0
+        simgr.active[0].globals["crypt_result"] = 0
+        simgr.active[0].globals["n_buffer"] = 0
+        simgr.active[0].globals["n_calls"] = 0
+        simgr.active[0].globals["recv"] = 0
+        simgr.active[0].globals["rsrc"] = 0
+        simgr.active[0].globals["resources"] = {}
+        simgr.active[0].globals["df"] = 0
+        simgr.active[0].globals["files"] = {}
+        simgr.active[0].globals["n_calls_recv"] = 0
+        simgr.active[0].globals["n_calls_send"] = 0
+        simgr.active[0].globals["n_buffer_send"] = 0
+        simgr.active[0].globals["buffer_send"] = []
+        simgr.active[0].globals["files"] = {}
+        simgr.active[0].globals["FindFirstFile"] = 0
+        simgr.active[0].globals["FindNextFile"] = 0
+        simgr.active[0].globals["GetMessageA"] = 0
+        simgr.active[0].globals["GetLastError"] = claripy.BVS("last_error", 32)
+        simgr.active[0].globals["HeapSize"] = {}
+        simgr.active[0].globals["CreateThread"] = 0
+        simgr.active[0].globals["CreateRemoteThread"] = 0
+        simgr.active[0].globals["condition"] = ""
+        simgr.active[0].globals["files_fd"] = {}
+        simgr.active[0].globals["create_thread_address"] = []
+        simgr.active[0].globals["is_thread"] = False
+        simgr.active[0].globals["recv"] = 0
+        simgr.active[0].globals["allow_web_interaction"] = False
 
         self.scdg.append(
             [
@@ -447,7 +515,7 @@ class ToolChainSCDG:
                 }
             ]
         )
-        
+
         self.jump_dict.clear()
         self.jump_concrete_dict.clear()
         self.jump_dict[0] = {}
@@ -508,25 +576,27 @@ class ToolChainSCDG:
             + "\n------------------------------"
         )
 
-        #SYMNAV
+        # SYMNAV
         if args.symnav:
-            aw = AngrWrapper(proj, os.path.join(JSON_DIR, "cfg_atb.json"), smgr=simgr, starting_state=state, concretize_addresses=True)
+            aw = AngrWrapper(proj, os.path.join(JSON_DIR, "cfg_atb.json"), smgr=simgr, starting_state=state,
+                             concretize_addresses=True)
             aw.init_run()
             aw.dump_symbtree(os.path.join(JSON_DIR, "symbolic_tree.json"))
             aw.dump_leaves_info(os.path.join(JSON_DIR, "leaves.json"))
             aw.dump_symbols(os.path.join(JSON_DIR, "symbols.json"))
             aw.dump_coverage_loss(os.path.join(JSON_DIR, "coverage_loss.json"))
 
-            eel.init(WEB_DIR, allowed_extensions=['.js', '.html']) # initialize interface
+            eel.init(WEB_DIR, allowed_extensions=['.js', '.html'])  # initialize interface
             web_app_options = {
                 'mode': "chrome-app",
                 'port': 8000,
                 'chromeFlags': ["--aggressive-cache-discard"]
             }
-            eel.start('index.html', suppress_error=True, options=web_app_options) # start interface. Ctrl+c in the terminal to continue or close tab to kill
+            eel.start('index.html', suppress_error=True,
+                      options=web_app_options)  # start interface. Ctrl+c in the terminal to continue or close tab to kill
 
-            #IPython.embed() # start console python --> use "quit" to quit
-        #END_SYMNAV
+            # IPython.embed() # start console python --> use "quit" to quit
+        # END_SYMNAV
 
         simgr.run()
 
@@ -538,9 +608,21 @@ class ToolChainSCDG:
 
         self.log.info("Syscall Found:" + str(self.call_sim.syscall_found))
 
+        total_env_var = state.plugin_env_var.ending_state(simgr)
+
+        total_registery = state.plugin_registery.ending_state(simgr)
+
+        total_locale = state.plugin_locale_info.ending_state(simgr)
+
+        total_res = state.plugin_resources.ending_state(simgr)
+
+        self.log.info("Environment variables:" + str(total_env_var))
+        self.log.info("Registery variables:" + str(total_registery))
+        self.log.info("Locale informations variables:" + str(total_locale))
+        self.log.info("Resources variables:" + str(total_res))
+
         elapsed_time = time.time() - self.start_time
         self.log.info("Total execution time to build scdg: " + str(elapsed_time))
-
 
         self.build_scdg_fin(exp_dir, nameFileShort, main_obj, state, simgr, discard_SCDG)
 
@@ -618,7 +700,7 @@ class ToolChainSCDG:
                 dump_id = dump_id + 1
                 self.scdg_fin.append(self.scdg[state.globals["id"]])
 
-        #TODO : Add better management for unconstrained paths
+        # TODO : Add better management for unconstrained paths
         """for state in simgr.unconstrained:
             hashVal = hash(str(self.scdg[state.globals["id"]]))
             if hashVal not in dic_hash_SCDG:
@@ -659,41 +741,44 @@ class ToolChainSCDG:
         self.inputs = "".join(self.inputs.rstrip())
         if os.path.isfile(self.inputs):
             # TODO update familly
-            self.log.info("You decide to analyse a single binary: "+ self.inputs)
+            self.log.info("You decide to analyse a single binary: " + self.inputs)
             self.build_scdg(args)
         else:
             import progressbar
             last_familiy = "unknown"
             if os.path.isdir(self.inputs):
-                subfolder = [os.path.join(self.inputs, f) for f in os.listdir(self.inputs) if os.path.isdir(os.path.join(self.inputs, f))]
+                subfolder = [os.path.join(self.inputs, f) for f in os.listdir(self.inputs) if
+                             os.path.isdir(os.path.join(self.inputs, f))]
                 bar_f = progressbar.ProgressBar(max_value=len(subfolder))
                 bar_f.start()
                 ffc = 0
                 for folder in subfolder:
                     self.log.info("You are currently building SCDG for " + folder)
-                    files = [os.path.join(folder, f) for f in os.listdir(folder) if os.path.isfile(os.path.join(folder, f)) and not f.endswith(".zip")]
+                    files = [os.path.join(folder, f) for f in os.listdir(folder) if
+                             os.path.isfile(os.path.join(folder, f)) and not f.endswith(".zip")]
                     bar = progressbar.ProgressBar(max_value=len(files))
                     bar.start()
                     fc = 0
                     current_family = folder.split("/")[-1]
                     if not is_fl:
-                        args.exp_dir = args.exp_dir.replace(last_familiy,current_family) 
+                        args.exp_dir = args.exp_dir.replace(last_familiy, current_family)
                     else:
-                        args["exp_dir"] = args["exp_dir"].replace(last_familiy,current_family) 
+                        args["exp_dir"] = args["exp_dir"].replace(last_familiy, current_family)
                     for file in files:
                         self.inputs = file
                         self.familly = current_family
                         self.build_scdg(args, is_fl)
-                        fc+=1
+                        fc += 1
                         bar.update(fc)
                     self.families += current_family
                     last_familiy = current_family
                     bar.finish()
-                    ffc+=1
+                    ffc += 1
                     bar_f.update(ffc)
                 bar_f.finish()
             else:
-                self.log.info("Error: you should insert a folder containing malware classified in their family folders\n(Example: databases/malware-inputs/Sample_paper")
+                self.log.info(
+                    "Error: you should insert a folder containing malware classified in their family folders\n(Example: databases/malware-inputs/Sample_paper")
                 exit(-1)
 
 
@@ -708,12 +793,14 @@ def main():
     args_parser = ArgumentParserSCDG(toolc)
     args = args_parser.parse_arguments()
     args_parser.update_tool(args)
+    sys.setrecursionlimit(100000)
     toolc.start_scdg(args)
+
 
 if __name__ == "__main__":
     if MEMORY_PROFILING:
         tracemalloc.start()
-    
+
     main()
 
     if MEMORY_PROFILING:
@@ -722,4 +809,3 @@ if __name__ == "__main__":
         print("[ Top 50 ]")
         for stat in top_stats[:50]:
             print(stat)
-
