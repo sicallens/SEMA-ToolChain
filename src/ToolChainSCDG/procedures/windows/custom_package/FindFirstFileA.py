@@ -1,13 +1,18 @@
 import angr
 import claripy
+import logging
 
+lw = logging.getLogger("CustomSimProcedureWindows")
 
-class FindFirstFile(angr.SimProcedure):
+class FindFirstFileA(angr.SimProcedure):
     def run(self, lpFileName, lpFindFileData):
         try:
-            print(self.state.mem[lpFileName].string.concrete)
+            name = self.state.mem[lpFileName].string.concrete
+            if hasattr(name, "decode"):
+                name = name.decode("utf-8")
+                lw.info(name)
         except:
-            print(self.state.memory.load(lpFileName,0x20))
+            lw.info(self.state.memory.load(lpFileName,0x20))
         if self.state.globals["FindFirstFile"] == 0:
             self.state.globals["FindFirstFile"] == 1
             self.state.memory.store(lpFindFileData, claripy.BVS("dwFileAttributes", 8 * 4))
@@ -18,8 +23,10 @@ class FindFirstFile(angr.SimProcedure):
             self.state.memory.store(lpFindFileData+0x20, claripy.BVS("nFileSizeLow", 8 * 4))
             self.state.memory.store(lpFindFileData+0x24, claripy.BVS("dwReserved0", 8 * 4))
             self.state.memory.store(lpFindFileData+0x28, claripy.BVS("dwReserved1", 8 * 4))
-            self.state.memory.store(lpFindFileData+0x2c, claripy.BVS("cFileName", 8 * 260 * 2))
-            self.state.memory.store(lpFindFileData+0x234, claripy.BVS("cAlternateFileName", 8 * 14 * 2))
+            self.state.memory.store(lpFindFileData+0x2c, claripy.BVS("cFileName", 8 * 260))
+            self.state.memory.store(lpFindFileData+0x2c, claripy.BVV("abcdef.cmd"))
+            self.state.memory.store(lpFindFileData+0x36, claripy.BVV(0x0,8 * 250))
+            self.state.memory.store(lpFindFileData+0x130, claripy.BVS("cAlternateFileName", 8 * 14))
             ret_val = self.state.solver.BVS("retval_{}".format(self.display_name), self.arch.bits)
             self.state.solver.add(ret_val != -1)
             return ret_val

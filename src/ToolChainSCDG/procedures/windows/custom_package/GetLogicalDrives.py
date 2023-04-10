@@ -4,6 +4,6 @@ import angr
 lw = logging.getLogger("CustomSimProcedureWindows")
 
 
-class GetEnvironmentStringsW(angr.SimProcedure):
+class GetLogicalDrives(angr.SimProcedure):
     def run(self):
-        return self.state.plugin_env_var.env_blockw
+        return 0x7
