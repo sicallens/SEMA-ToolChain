@@ -139,13 +139,17 @@ class TreeAnalyzer(object):
         #print(node_id_to_merged_id)
 
         node_to_symbol = dict()
-        for symbol_name in self.angr_wrapper.symbols:
-            symbol = self.angr_wrapper.symbols[symbol_name]
-            creation_node_id = node_id_to_merged_id[symbol.node_id] if symbol.node_id != 0 else 0
-            if creation_node_id not in node_to_symbol:
-                node_to_symbol[creation_node_id] = set([symbol_name])
-            else:
-                node_to_symbol[creation_node_id].add(symbol_name)
+        try:
+            for symbol_name in self.angr_wrapper.symbols:
+                symbol = self.angr_wrapper.symbols[symbol_name]
+                creation_node_id = node_id_to_merged_id[symbol.node_id] if symbol.node_id != 0 else 0
+                if creation_node_id not in node_to_symbol:
+                    node_to_symbol[creation_node_id] = set([symbol_name])
+                else:
+                    node_to_symbol[creation_node_id].add(symbol_name)
+        except Exception as e:
+            print("WORK IN PROGRESS")
+            print(e)
 
         res = 0
         for node in path:

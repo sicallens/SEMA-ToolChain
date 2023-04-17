@@ -62,11 +62,12 @@ class SymbtreeBuilder(object):
             father_id = self.first_state.id
         else:
             father_id = LightweightState.hash_from_history(father)
-        assert self.tree.contains(father_id)
-        
-        lwState = LightweightState(state)
-        assert not self.tree.contains(lwState.id)
-        self.tree.add_child(lwState.id, lwState, father_id)
+        # assert self.tree.contains(father_id)
+
+        if self.tree.contains(father_id):
+            lwState = LightweightState(state)
+            assert not self.tree.contains(lwState.id)
+            self.tree.add_child(lwState.id, lwState, father_id)
     
     def simplify_symbtree(self):
         simplified = self.tree.simplify()

@@ -91,7 +91,7 @@ aw = None
 def prune_tree(filter_opts, commit):
     global aw
     if aw is None: return {}
-
+    print(filter_opts)
     res = aw.apply_filters(filter_opts, commit)
     return res
 
@@ -101,10 +101,23 @@ def continue_exploration(filter_opts, cont_data):
     global aw
     if aw is None: return {}
     aw.apply_filters(filter_opts, True)
+    avoid_blocks = set()
+    avoid_edges = set()
+    # for elem in filter_opts:
+    #     if elem['mode'] == 'black':
+    #         if elem['type'] == 'filter_edge':
+    #             avoid_edges.add((int(elem['toFilterSrc'], 16), int(elem['toFilterTrg'], 16)))
+    #         if elem['type'] == 'filter_block':
+    #             avoid_blocks.add(int(elem['toFilter']))
+    #
+    # print(avoid_blocks)
+    # print(avoid_edges)
     aw.run(
         10000,
         time_treshold=int(cont_data["time"]),
-        mem_treshold=int(cont_data["memory"])
+        mem_treshold=int(cont_data["memory"]),
+        avoid_blocks=avoid_blocks,
+        avoid_edges=avoid_edges,
     )
 
     # dummy, linearize tree in dict
@@ -578,6 +591,10 @@ class ToolChainSCDG:
 
         # SYMNAV
         if args.symnav:
+            self.log.info(
+                "\n------------------------------\nStart - SymNav : "
+                + "\n------------------------------"
+            )
             aw = AngrWrapper(proj, os.path.join(JSON_DIR, "cfg_atb.json"), smgr=simgr, starting_state=state,
                              concretize_addresses=True)
             aw.init_run()
@@ -597,6 +614,10 @@ class ToolChainSCDG:
 
             # IPython.embed() # start console python --> use "quit" to quit
         # END_SYMNAV
+        self.log.info(
+            "\n------------------------------\nEnd - SymNav : "
+            + "\n------------------------------"
+        )
 
         simgr.run()
 

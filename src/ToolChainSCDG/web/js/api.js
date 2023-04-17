@@ -67,7 +67,8 @@ system.api = (function() {
       block_id: blockId,
       mode: mode,
       count: countMode === null ? count : countMode,
-      elementStr: "Block <br>[" + system.data.getBlockAddressById(blockId) + "]"
+      elementStr: "Block <br>[" + system.data.getBlockAddressById(blockId) + "]",
+      toFilter: system.data.getBlockAddressById(blockId)
     })
     this.pruneTree()
   }
@@ -82,7 +83,9 @@ system.api = (function() {
       dst_id: trgId,
       mode: mode,
       count: countMode === null ? count : countMode,
-      elementStr: "Edge <br>[" + system.data.getBlockAddressById(srcId) + ", " + system.data.getBlockAddressById(trgId) + "]"
+      elementStr: "Edge <br>[" + system.data.getBlockAddressById(srcId) + ", " + system.data.getBlockAddressById(trgId) + "]",
+      toFilterSrc: system.data.getBlockAddressById(srcId),
+      toFilterTrg: system.data.getBlockAddressById(trgId)
     })
     this.pruneTree()
   }

@@ -86,7 +86,7 @@ class AngrWrapper(object):
         if concretize_addresses:
             self.entry_state.memory.read_strategies[0] = SimConcretizationStrategyConcretizeUnlessJmp()
 
-        self.smgr.stashes['avoid'] = list()
+        self.smgr.stashes['filtered'] = list()
 
         self.stb = SymbtreeBuilder(self.address_to_block)
         self.stb.update(self.entry_state)
@@ -95,18 +95,25 @@ class AngrWrapper(object):
         self.tree_pruner   = TreePruner(self.stb.tree, self.address_to_block, self.symbols)
     
     def filter_fun(self, avoid_blocks, avoid_edges):
-        avoid_blocks = set(avoid_blocks) if avoid_blocks else set()
-        avoid_edges  = set(avoid_edges)  if avoid_edges  else set()
+        #avoid_blocks = set(avoid_blocks) if avoid_blocks else set()
+        #avoid_edges  = set(avoid_edges)  if avoid_edges  else set()
         def f(state):
+            # print("=====================================================================")
+            # print(state)
+            # print(state.addr)
             if state.addr in avoid_blocks:
-                return 'avoid'
+                print("avoid block")
+                return 'filtered'
             if not state.history.parent:
                 return 'active'
             parent_id = LightweightState.hash_from_history(state.history.parent)
             parent = self.stb.tree.get_by_id(parent_id).data
+            # print(parent)
+            # print(parent.address)
+            # print("=====================================================================")
             if (parent.address, state.addr) in avoid_edges:
                 print("avoid edge")
-                return 'avoid'
+                return 'filtered'
             return 'active'
         return f
     
@@ -128,8 +135,8 @@ class AngrWrapper(object):
             timer, 
             time_treshold=None, 
             mem_treshold=None, 
-            avoid_blocks=None, 
-            avoid_edges=None, 
+            avoid_blocks=None,
+            avoid_edges=None,
             target=None, 
             print_mem_time_usage=True,
             print_dbg=False,
@@ -141,7 +148,7 @@ class AngrWrapper(object):
         current_time = time.time()
         current_mem  = util.get_memory_usage()
 
-        filter_func = self.filter_fun(avoid_blocks, avoid_edges)
+        filter_func = None #self.filter_fun(avoid_blocks, avoid_edges)
 
         tick = 0
         should_exit = False
@@ -150,8 +157,9 @@ class AngrWrapper(object):
             (not time_treshold or (current_time - start_time < time_treshold)) and
             (not mem_treshold or (current_mem < mem_treshold))  # mem_threshold in MB
         ):
+            #print("--------------------------------- ICI ---------------------------------------")
             self.smgr.step(filter_func=filter_func)
-
+            #print("--------------------------------- LA ----------------------------------------")
             for state in self.smgr.active:
                 self.stb.update(state)
                 if print_ext and self.project.is_hooked(state.addr):
@@ -249,7 +257,7 @@ class AngrWrapper(object):
             # this return self. There is a better way?
             strongref_state = leaf.data.state_weakref._get_strongref()
             strongref_state.add_constraints(*constraints)
-            if strongref_state in self.smgr.avoid:
+            if strongref_state in self.smgr.stashes["filtered"]:
                 continue
             tmp.append(strongref_state)
         self.smgr.stashes['active'] = tmp
