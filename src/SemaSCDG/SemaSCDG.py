@@ -102,10 +102,120 @@ import avatar2 as avatar2
 from unipacker.core import Sample, SimpleClient, UnpackerEngine
 from unipacker.utils import RepeatedTimer, InvalidPEFile
 from unipacker.unpackers import get_unpacker
-from angr_targets import AvatarGDBConcreteTarget
+#from angr_targets import AvatarGDBConcreteTarget
 
+# SYMNAV
+import os
+import eel
+import sys
+import r2pipe
+import logging
+from optparse import OptionParser
+try:
+    from utility.cfg_loader import compute_cfg
+    from angr_wrapper import AngrWrapper
+    from utility import util
+except:
+    from .utility.cfg_loader import compute_cfg
+    from .angr_wrapper import AngrWrapper
+    from .utility import util
+import signal
+
+import IPython
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+SCRIPT_DIR = ROOT_DIR
+WEB_DIR = os.path.join(SCRIPT_DIR, "web")
+DATA_DIR = os.path.join(WEB_DIR, "data")
+JSON_DIR = os.path.join(DATA_DIR, "json_data")
+
+aw = None
+state = None
+state_global = None
+state_stop = None
+simgr_stop = None
+proj_global = None
+exploration_tech = None
+
+@eel.expose
+def prune_tree(filter_opts, commit):
+    global aw
+    if aw is None: return {}
+    res = aw.apply_filters(filter_opts, commit)
+    return res
+
+
+@eel.expose
+def new_exploration():
+    print("===================== Starting A New Exploration =====================")
+    global aw
+    global simgr_stop
+    global state_stop
+
+    state_stop = state_global.copy()
+    simgr_stop = proj_global.factory.simulation_manager(state_stop)
+
+    simgr_stop.stashes["pause"] = []
+    simgr_stop.stashes["new_addr"] = []
+    simgr_stop.stashes["ExcessLoop"] = []
+    simgr_stop.stashes["ExcessStep"] = []
+    simgr_stop.stashes["temp"]
+
+    exploration_tech.simgr = simgr_stop
+
+    #TODO reset explorer variables
+    simgr_stop.use_technique(exploration_tech)
+
+    aw = AngrWrapper(proj_global, os.path.join(JSON_DIR, "cfg_atb.json"), smgr=simgr_stop, starting_state=state_stop,
+                     concretize_addresses=True)
+    aw.init_run()
+    aw.dump_symbtree(os.path.join(JSON_DIR, "symbolic_tree.json"))
+    aw.dump_leaves_info(os.path.join(JSON_DIR, "leaves.json"))
+    aw.dump_symbols(os.path.join(JSON_DIR, "symbols.json"))
+    aw.dump_coverage_loss(os.path.join(JSON_DIR, "coverage_loss.json"))
+
+    return True
+
+@eel.expose
+def continue_exploration(filter_opts, cont_data):
+    global aw
+    if aw is None: return {}
+    aw.apply_filters(filter_opts, True)
+    avoid_blocks = set()
+    avoid_edges = set()
+    for elem in filter_opts:
+        # For classic filters
+        try:
+            if elem['mode'] == 'black':
+                if elem['type'] == 'filter_edge':
+                    avoid_edges.add((int(elem['toFilterSrc'], 16), int(elem['toFilterTrg'], 16)))
+                if elem['type'] == 'filter_block':
+                    avoid_blocks.add(int(elem['toFilter'], 16))
+        # For special filters (limit filters)
+        except:
+            dummy = 0  # Do nothing
+
+    #print(avoid_blocks)
+    #print(avoid_edges)
+    aw.run(
+        10000,
+        time_treshold=int(cont_data["time"]),
+        mem_treshold=int(cont_data["memory"]),
+        avoid_blocks=avoid_blocks,
+        avoid_edges=avoid_edges,
+    )
+
+    # dummy, linearize tree in dict
+    res = aw.apply_filters([])
+    return res
+
+@eel.expose
+def stop_exploration():
+    signal.raise_signal(signal.SIGINT)
+# END_SYMNAV
+
+
+
 
 class SemaSCDG:
     """
@@ -303,7 +413,7 @@ class SemaSCDG:
         try:
             logging.getLogger().removeHandler(fileHandler)
         except:
-            self.log.info("Exeption remove filehandle")
+            self.log.info("Exception remove filehandle")
             pass
         
         logging.getLogger().addHandler(fileHandler)
@@ -629,7 +739,7 @@ class SemaSCDG:
 
         # Load pre-defined syscall table
         if os_obj == "windows":
-            self.call_sim.system_call_table = self.call_sim.ddl_loader.load(projTrue if (self.is_packed and False) else False,dll)
+            self.call_sim.system_call_table = self.call_sim.ddl_loader.load(proj, True if (self.is_packed and False) else False,dll)
         else:
            self.call_sim.system_call_table = self.call_sim.linux_loader.load_table(proj)
         
@@ -640,6 +750,24 @@ class SemaSCDG:
             addr = addr_main.rebased_addr
         else:
             addr = None
+
+        # SYMNAV
+        if args.symnav:
+            r = r2pipe.open(self.inputs)
+            global aw
+            global state
+            global state_global
+            global state_stop
+            global simgr_stop
+            global proj_global
+            global exploration_tech
+
+            if r.cmdj("iIj")["pic"]:
+                base = 0x400000
+            else:
+                base = None
+            compute_cfg(self.inputs, JSON_DIR, base)
+        # END SYMNAV
 
         # Wabot
         # addr = 0x004081fc
@@ -685,7 +813,7 @@ class SemaSCDG:
             # options.add(angr.options.TRACK_CONSTRAINT_ACTIONS)
             # options.add(angr.options.TRACK_JMP_ACTIONS)
 
-        self.log.info("Entry_state address = " + str(hex(addr)))
+        self.log.info("Entry_state address = " + str(addr))
         # Contains a program's memory, registers, filesystem data... any "live data" that can be changed by execution has a home in the state
         state = proj.factory.entry_state(
             addr=addr, args=args_binary, add_options=options
@@ -771,14 +899,14 @@ class SemaSCDG:
         # code at that address.
         
         if os_obj == "windows":
-            self.call_sim.loadlibs(proj,symbs=symbs,dll=dll)
+            self.call_sim.loadlibs(proj)  # ,symbs=symbs,dll=dll)
         
         self.call_sim.custom_hook_static(proj)
 
         if os_obj != "windows":
             self.call_sim.custom_hook_no_symbols(proj)
         else:
-            self.call_sim.custom_hook_windows_symbols(proj,True if (self.is_packed and False) else False,symbs)
+            self.call_sim.custom_hook_windows_symbols(proj)  # ,True if (self.is_packed and False) else False,symbs)
 
         if args.hooks:
             self.hooks.initialization(cont, is_64bits=True if proj.arch.name == "AMD64" else False)
@@ -939,7 +1067,7 @@ class SemaSCDG:
 
             # # Create initial state of the binary
             # # options = {angr.options.USE_SYSTEM_TIMES}
-            # options = {angr.options.SIMPLIFY_MEMORY_READS}
+            # options = {fangr.options.SIMPLIFY_MEMORY_READS}
             # options.add(angr.options.ZERO_FILL_UNCONSTRAINED_REGISTERS)
             # options.add(angr.options.USE_SYSTEM_TIMES)
             # options.add(angr.options.ZERO_FILL_UNCONSTRAINED_MEMORY)
@@ -1194,8 +1322,49 @@ class SemaSCDG:
             + str(simgr)
             + "\n------------------------------"
         )
+
+        # SYMNAV
+        if args.symnav:
+            print('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa')
+            sys.setrecursionlimit(100000)
+            self.log.info(
+                "\n------------------------------\nStart - SymNav : "
+                + "\n------------------------------"
+            )
+
+            state_global = state.copy()
+            proj_global = proj
+
+            aw = AngrWrapper(proj, os.path.join(JSON_DIR, "cfg_atb.json"), smgr=simgr, starting_state=state,
+                             concretize_addresses=True)
+            aw.init_run()
+            aw.dump_symbtree(os.path.join(JSON_DIR, "symbolic_tree.json"))
+            aw.dump_leaves_info(os.path.join(JSON_DIR, "leaves.json"))
+            aw.dump_symbols(os.path.join(JSON_DIR, "symbols.json"))
+            aw.dump_coverage_loss(os.path.join(JSON_DIR, "coverage_loss.json"))
+
+            eel.init(WEB_DIR, allowed_extensions=['.js', '.html'])  # initialize interface
+            web_app_options = {
+                'mode': "chrome-app",
+                'port': 8080,
+                'chromeFlags': ["--aggressive-cache-discard", "--no-sandbox"]
+            }
+            eel.start('index.html', suppress_error=True,
+                      options=web_app_options)  # start interface. Ctrl+c to continue or close tab to kill
+
+            # IPython.embed() # start console python --> use "quit" to quit
+            if state_stop != None:
+                state = state_stop
+                simgr = simgr_stop
+
+            self.log.info(
+                "\n------------------------------\nEnd - SymNav : "
+                + "\n------------------------------"
+            )
+        # END_SYMNAV
         
-        simgr.run()
+        else:
+            simgr.run()
 
         self.log.info(
             "\n------------------------------\nEnd - State of simulation manager :\n "
@@ -1540,6 +1709,7 @@ class SemaSCDG:
             self.log.addHandler(ch)
             self.log.propagate = False
             logging.getLogger("angr").setLevel("INFO")
+            logging.getLogger("eel").setLevel("INFO")
             logging.getLogger('claripy').setLevel('INFO')
             self.log.setLevel(logging.INFO)
         else:

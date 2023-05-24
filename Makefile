@@ -40,10 +40,13 @@ run-web:
 			   -v /app/src/submodules/ \
 			   -v $(PWD)/SemaWebApp/:/app/SemaWebApp/ \
 			   -v /tmp/.X11-unix:/tmp/.X11-unix \
+			   --device=/dev/tty0 \
+			   -v $AUTH:/root/.Xauthority \
 			   -v $(PWD)/penv-fix/:/penv-fix/ \
     		   -e DISPLAY=$(DISPLAY) \
+    		   -p 8080:8080 \
 			   -p 80:80 \
-			   --network="bridge" \
+			   --network="host" \
 			   -it sema-web bash run_server.sh
 
 run-sh:
@@ -54,6 +57,7 @@ run-sh:
 			   -v $(PWD)/SemaWebApp/:/app/SemaWebApp/ \
 			   -v /tmp/.X11-unix:/tmp/.X11-unix \
     		   -e DISPLAY=$(DISPLAY) \
+    		   -p 8000:8000 \
 			   -p 80:80 \
 			   --network="bridge" \
 			   -it sema-web bash

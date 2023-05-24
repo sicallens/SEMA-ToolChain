@@ -75,10 +75,10 @@ class SemaExplorerSDFS(SemaExplorer):
             simgr.remove_technique(tech)
             simgr.use_technique(sdfs)
             exploration = simgr.run()
-            
-    def step(self, simgr, stash="active", **kwargs):
+
+    def step(self, simgr, stash="active", filter_func=None, **kwargs):
         try:
-            simgr = simgr.step(stash=stash, **kwargs)
+            simgr = simgr.step(stash=stash, filter_func=filter_func, **kwargs)
         except Exception as inst:
             self.log.warning("ERROR IN STEP() - YOU ARE NOT SUPPOSED TO BE THERE !")
             # self.log.warning(type(inst))    # the exception instance

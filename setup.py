@@ -54,6 +54,8 @@ setup(name='sema-tc',
           'gensim',
           'avatar2',
           'r2pipe',
+          'eel',
+          'IPython',
           'pyinstaller',
           'matplotlib',
           'celery', # ==4.4.7

@@ -42,9 +42,9 @@ class SemaExplorerCDFS(SemaExplorer):
         self.log = logging.getLogger("SemaExplorerCDFS")
         self.log.setLevel("INFO")
 
-    def step(self, simgr, stash="active", **kwargs):
+    def step(self, simgr, stash="active", filter_func=None, **kwargs):
         try:
-            simgr = simgr.step(stash=stash, **kwargs)
+            simgr = simgr.step(stash=stash, filter_func=filter_func, **kwargs)
         except Exception as inst:
             self.log.warning(inst)  # __str__ allows args to be printed directly,
             exc_type, exc_obj, exc_tb = sys.exc_info()

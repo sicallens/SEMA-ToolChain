@@ -57,6 +57,7 @@ class SemaServer:
         # "packers"  : ROOTPATH+'/yara/pe/x86/packers.yara'
     })
     rules_pe_x64 = yara.compile(filepaths={
+
         "compilers" : ROOTPATH+'/yara/pe/x64/compilers.yara',
         "installers": ROOTPATH+'/yara/pe/x64/installers.yara'
         # "packers"  : ROOTPATH+'/yara/pe/x64/packers.yara' #yara.SyntaxError: /app/yara/pe/x86/packers.yara(151): invalid field name "number_of_user_strings"
@@ -111,7 +112,8 @@ class SemaServer:
                     SemaServer.actions_classifier[-1][group_name].append({'name': action.dest, 'help': action.help, "type": str(action.type), "default": action.default, "is_mutually_exclusive": False})
         
 
-    def init_scdg_args(self):    
+    def init_scdg_args(self):
+        print(SemaServer.sema.args_parser.args_parser_scdg)
         for group in SemaServer.sema.args_parser.args_parser_scdg.parser._mutually_exclusive_groups:
             if group.title == "positional arguments":
                 continue
@@ -134,6 +136,8 @@ class SemaServer:
                     SemaServer.actions_scdg[-1][group_name].append({'name': action.dest, 'help': action.help, "type": str(action.type), "default": action.default, "is_mutually_exclusive": True})
             
         for group in SemaServer.sema.args_parser.args_parser_scdg.parser._action_groups:
+            print('------------------------')
+            print(group.title)
             if group.title == "positional arguments":
                 continue
             if group.title == "optional arguments":
@@ -145,6 +149,7 @@ class SemaServer:
             for action in group._group_actions:
                 # TODO add group_name in new dictionary
                 group_name = group.title
+                print(action.dest)
                 # SemaServer.log.info(action)
                 if group_name not in SemaServer.actions_scdg[-1]:
                     SemaServer.actions_scdg[-1][group_name] = []
@@ -237,7 +242,7 @@ class SemaServer:
     def iteration_dl():
         return str(SemaServer.malware_to_download) ## TODO
     
-    def get_fl_args(self,request):
+    def get_fl_args(request):
         fl_args = {}
         exp_args = []
         exp_args_str = ""
@@ -256,10 +261,10 @@ class SemaServer:
                         exp_args.append(request.form[action.dest])
         return fl_args, exp_args, exp_args_str
     
-    def get_mutator_args(self,request):
+    def get_mutator_args(request):
         pass # TODO bastien
     
-    def get_class_args(self,request):
+    def get_class_args(request):
         # The above code is initializing an empty dictionary `class_args` and two empty lists
         # `exp_args` and `exp_args_str`. It is not doing anything else with these variables.
         class_args = {}
@@ -302,7 +307,7 @@ class SemaServer:
         return class_args, exp_args, exp_args_str
 
     
-    def get_scdg_args(self,request):
+    def get_scdg_args(request):
         scdg_args = {}
         exp_args = []
         exp_args_str = ""
@@ -380,19 +385,20 @@ class SemaServer:
             exp_args = []
             
             # TODO dir per malware
-            scdg_args, exp_args_scdg, exp_args_scdg_str = SemaServer.get_scdg_args(request)   
-            exp_args += scdg_args   
+            scdg_args, exp_args_scdg, exp_args_scdg_str = SemaServer.get_scdg_args(request=request)
+            exp_args += exp_args_scdg
+            # TODO problem parsing
             class_args, exp_args_class, exp_args_class_str = SemaServer.get_class_args(request)
-            exp_args += class_args  
+            exp_args += exp_args_class
             if "fl_enable" in request.form: # TODO refactor + implement
                 fl_args, exp_args_fl, exp_args_fl_str = SemaServer.get_fl_args(request)
                 exp_args += fl_args               
-            muta_args, exp_args_muta, exp_args_muta_str = SemaServer.get_mutator_args(request)
-            exp_args += muta_args
+            #muta_args, exp_args_muta, exp_args_muta_str = SemaServer.get_mutator_args(request)
+            #exp_args += muta_args
                 
             SemaServer.log.info(exp_args)
 
-            args = SemaServer.sema.args_parser.parse_arguments(args_list=exp_args,allow_unk=False) # TODO
+            args = SemaServer.sema.args_parser.parse_arguments(args_list=exp_args_scdg,allow_unk=False) # TODO
             
             SemaServer.log.info(args)
 
