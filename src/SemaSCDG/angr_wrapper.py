@@ -270,14 +270,14 @@ class AngrWrapper(object):
                 strongref_state.add_constraints(*constraints)
                 if strongref_state in self.smgr.stashes['filtered']:
                     continue
-                if strongref_state in self.smgr.stashes['ExcessLoop']:
-                    continue
-                if strongref_state in self.smgr.stashes['pause']:
-                    continue
-                if strongref_state in self.smgr.stashes['ExcessStep']:
-                    continue
-                if strongref_state in self.smgr.stashes['new_addr']:
-                    continue
+                #if strongref_state in self.smgr.stashes['ExcessLoop']:
+                #    continue
+                # if strongref_state in self.smgr.stashes['pause']:
+                #     continue
+                # if strongref_state in self.smgr.stashes['ExcessStep']:
+                #     continue
+                # if strongref_state in self.smgr.stashes['new_addr']:
+                #     continue
                 tmp.append(strongref_state)
             self.smgr.stashes['active'] = tmp
 

@@ -387,15 +387,15 @@ class SemaSCDG:
             
         self.log.info(args)
 
-        if exp_dir != "output/runs/"+ str(self.current_exp_dir) + "/":
-            setup = open_file("src/output/runs/"+ str(self.current_exp_dir) + "/" + "setup.txt", "w")
-            setup.write(str(self.jump_it) + "\n")
-            setup.write(str(self.loop_counter_concrete) + "\n")
-            setup.write(str(self.max_simul_state) + "\n")
-            setup.write(str(self.max_in_pause_stach) + "\n")
-            setup.write(str(self.max_step) + "\n")
-            setup.write(str(self.max_end_state))
-            setup.close()
+        # if exp_dir != "output/runs/"+ str(self.current_exp_dir) + "/":
+        #     setup = open_file("src/output/runs/"+ str(self.current_exp_dir) + "/" + "setup.txt", "w")
+        #     setup.write(str(self.jump_it) + "\n")
+        #     setup.write(str(self.loop_counter_concrete) + "\n")
+        #     setup.write(str(self.max_simul_state) + "\n")
+        #     setup.write(str(self.max_in_pause_stach) + "\n")
+        #     setup.write(str(self.max_step) + "\n")
+        #     setup.write(str(self.max_end_state))
+        #     setup.close()
 
         # Take name of the sample without full path
         if "/" in self.inputs:
@@ -792,10 +792,10 @@ class SemaSCDG:
             options.add(angr.options.USE_SYSTEM_TIMES)
             # options.add(angr.options.OPTIMIZE_IR)
             # options.add(angr.options.FAST_MEMORY)
-            # options.add(angr.options.SIMPLIFY_MEMORY_READS)
-            # options.add(angr.options.SIMPLIFY_MEMORY_WRITES)
-            # options.add(angr.options.SIMPLIFY_CONSTRAINTS)
-            # options.add(angr.options.SYMBOLIC_INITIAL_VALUES)
+            options.add(angr.options.SIMPLIFY_MEMORY_READS)
+            options.add(angr.options.SIMPLIFY_MEMORY_WRITES)
+            options.add(angr.options.SIMPLIFY_CONSTRAINTS)
+            options.add(angr.options.SYMBOLIC_INITIAL_VALUES)
             # options.add(angr.options.CPUID_SYMBOLIC)
             options.add(angr.options.ZERO_FILL_UNCONSTRAINED_REGISTERS)
             options.add(angr.options.ZERO_FILL_UNCONSTRAINED_MEMORY)
