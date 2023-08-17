@@ -145,7 +145,7 @@ class ArgumentParserSCDG:
         self.group_bin.add_argument(
             "--conc_loop",
             help="Number of symbolic arguments given to the binary (default : 1024)",
-            default=10240,
+            default=1024,
             type=int,
         )
         

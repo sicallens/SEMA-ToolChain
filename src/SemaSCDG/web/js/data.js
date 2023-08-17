@@ -131,10 +131,10 @@ system.data = (function() {
       try {
         json.forEach((nodeJson, nodeIndex) => {
           const n = new this.Node(nodeJson)
-          //console.log(n)
+          console.log(n)
           if (n.fatherId === 'root') this.symbTree.rootNode = n.id
-          //console.log(n.fatherId)
-          //console.log(this.symbTree.rootNode)
+          console.log(n.fatherId)
+          console.log(this.symbTree.rootNode)
           this.nodesById[n.id] = nodeIndex
           this.nodes.push(n)
           nodeJson.blocks.forEach((blockId, blockIndex) => {
@@ -144,9 +144,10 @@ system.data = (function() {
           })
         })
         const computeDepth = (nodeId) => {
-          //console.log(this.nodesById)
-          //console.log(nodeId)
+          console.log(this.nodesById)
+          console.log(nodeId)
           const n = this.getNodeById(nodeId)
+          console.log(n)
           n.depth = (n.fatherId === "root") ? 0 : this.getNodeById(n.fatherId).depth + 1
           n.children.forEach(computeDepth)
         }
@@ -788,8 +789,11 @@ system.data = (function() {
           }
         }
         blocksById[block.id].count += 1
+        console.log(node)
         node.forkSymbols.forEach(symbolId => {
+          console.log(symbolId);
           const symbol = this.getSymbolById(symbolId)
+          console.log(symbol)
             blocksById[block.id][symbol.category].push(nodeId)
         })
       }

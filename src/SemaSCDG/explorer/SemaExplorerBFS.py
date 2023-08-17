@@ -81,8 +81,8 @@ class SemaExplorerBFS(SemaExplorer):
         super().mv_bad_active(simgr)
         # import pdb; pdb.set_trace()
 
-        while simgr.active:
-            simgr.stashes["pause"].append(simgr.active.pop())
+        #while simgr.active:
+        #    simgr.stashes["pause"].append(simgr.active.pop())
             
         # If limit of simultaneous state is not reached and we have some states available in pause stash
         if len(simgr.stashes["pause"]) > 0 and len(simgr.active) < self.max_simul_state:

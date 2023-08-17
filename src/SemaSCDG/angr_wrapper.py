@@ -105,7 +105,8 @@ class AngrWrapper(object):
 
         self.tree_analyzer = TreeAnalyzer(self.stb.tree, self.address_to_block, self)
         self.tree_pruner   = TreePruner(self.stb.tree, self.address_to_block, self.symbols)
-    
+
+    # Filter tree (dynamic)
     def filter_fun(self, avoid_blocks, avoid_edges):
         avoid_blocks = set(avoid_blocks) if avoid_blocks else set()
         avoid_edges  = set(avoid_edges)  if avoid_edges  else set()
@@ -132,6 +133,7 @@ class AngrWrapper(object):
         while (
             len(self.smgr.active) == 1
         ):
+            #print(len(self.smgr.active))
             self.smgr.step()
             for state in self.smgr.active:
                 self.stb.update(state)
@@ -139,7 +141,20 @@ class AngrWrapper(object):
                     should_exit = True
             if should_exit:
                 break
-    
+
+    def init_run_thread(self):
+        should_exit = True
+        while (
+            len(self.smgr.active) == 1
+        ):
+            self.smgr.step()
+            for state in self.smgr.active:
+                self.stb.update(state)
+                if state.angr_wrapper.flag:
+                    should_exit = True
+            if should_exit:
+                break
+
     def run(
             self, 
             timer, 
@@ -167,9 +182,7 @@ class AngrWrapper(object):
             (not time_treshold or (current_time - start_time < time_treshold)) and
             (not mem_treshold or (current_mem < mem_treshold))  # mem_threshold in MB
         ):
-            #print("--------------------------------- ICI ---------------------------------------")
             self.smgr.step(filter_func=filter_func)
-            #print("--------------------------------- LA ----------------------------------------")
             for state in self.smgr.active:
                 self.stb.update(state)
                 if print_ext and self.project.is_hooked(state.addr):
@@ -235,20 +248,30 @@ class AngrWrapper(object):
     
     # called when a new symbol is created
     def symbol_creation(self, state):
-        symbol_name = state.inspect.symbolic_name
-        symbol_expr = state.inspect.symbolic_expr
-        address     = state.addr
-        creation    = hex(address)
-        node_id     = LightweightState.hash_from_state(state)
-        block_id    = self.find_cfg_block(state)
-        category    = self.infer_category(address, symbol_name)
-        if self.project.is_hooked(state.addr):
-            creation = str(self.project.hooked_by(state.addr)).replace("MODEL", "")
-        assert symbol_name not in self.symbols
-        self.symbols[symbol_name] = Symbol(
-            symbol_name, creation, symbol_expr, node_id, block_id, category
-        )
-    
+        try:
+            symbol_name = state.inspect.symbolic_name
+            symbol_expr = state.inspect.symbolic_expr
+            address     = state.addr
+            creation    = hex(address)
+            node_id     = LightweightState.hash_from_state(state)
+            print(symbol_name)
+            print(symbol_expr)
+            print(address)
+            print(creation)
+            block_id    = self.find_cfg_block(state)
+            category    = self.infer_category(address, symbol_name)
+            if self.project.is_hooked(state.addr):
+                creation = str(self.project.hooked_by(state.addr)).replace("MODEL", "")
+            assert symbol_name not in self.symbols
+            self.symbols[symbol_name] = Symbol(
+                symbol_name, creation, symbol_expr, node_id, block_id, category
+            )
+        except:
+            print("cannot retrieve symbol block in cfg :")
+            print(state)
+
+
+    # put the leaves of the pruned tree in the active stash and discard the others states
     def commit_filter(self, new_tree, constraints=[]):
         if self.smgr.active:
             filtered_symbols = AngrWrapper.filter_symbols(self.symbols, new_tree)
@@ -270,12 +293,14 @@ class AngrWrapper(object):
                 strongref_state.add_constraints(*constraints)
                 if strongref_state in self.smgr.stashes['filtered']:
                     continue
-                #if strongref_state in self.smgr.stashes['ExcessLoop']:
-                #    continue
-                # if strongref_state in self.smgr.stashes['pause']:
-                #     continue
-                # if strongref_state in self.smgr.stashes['ExcessStep']:
-                #     continue
+                if strongref_state in self.smgr.stashes['ExcessLoop']:
+                    continue
+                if strongref_state in self.smgr.stashes['pause']:
+                    continue
+                if strongref_state in self.smgr.stashes['deadended']:
+                    continue
+                if strongref_state in self.smgr.stashes['ExcessStep']:
+                    continue
                 # if strongref_state in self.smgr.stashes['new_addr']:
                 #     continue
                 tmp.append(strongref_state)
@@ -308,7 +333,8 @@ class AngrWrapper(object):
                 )
                 res.append(expr)
         return res
-    
+
+    # Prune the tree with the specified filters
     def apply_filters(self, filter_opts, commit=False):
         res = self.get_concretized_symbols_from_filter(filter_opts)
         for symbol_id in res:
@@ -322,6 +348,7 @@ class AngrWrapper(object):
             AngrWrapper.filter_symbols(self.symbols, new_tree), tree_build)
         new_leaves_dict = tree_anal.compute_leaves_info()
 
+        # make the pruning of the tree persistent
         if commit:
             constraints = self.get_filter_constraints(filter_opts)
             self.commit_filter(new_tree, constraints)
@@ -374,7 +401,10 @@ class AngrWrapper(object):
         return res
     
     def dump_symbols(self, out_path):
-        res = self.compute_symbols_dict(self.symbols)
+        try:
+            res = self.compute_symbols_dict(self.symbols)
+        except:
+            res = []
 
         with open(out_path, "w") as fout:
             json.dump(res, fout)

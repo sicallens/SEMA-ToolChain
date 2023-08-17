@@ -1,6 +1,8 @@
 import angr
 import logging
-import re 
+import re
+import os
+import eel
 
 from .PluginEnvVar import *
 from .PluginLocaleInfo import *
@@ -9,6 +11,16 @@ from .PluginHooks import *
 from .PluginWideChar import *
 from .PluginResources import *
 from .PluginEvasion import *
+
+try:
+    from angr_wrapper import AngrWrapper
+except:
+    from ..angr_wrapper import AngrWrapper
+
+SCRIPT_DIR = "/home/sicallens/SEMA-ToolChain/src/SemaSCDG"
+WEB_DIR = os.path.join(SCRIPT_DIR, "web")
+DATA_DIR = os.path.join(WEB_DIR, "data")
+JSON_DIR = os.path.join(DATA_DIR, "json_data")
 
 class PluginThread(angr.SimStatePlugin):
     def __init__(self, sema_scdg, exp_dir, proj, nameFileShort, options, args):
@@ -221,8 +233,8 @@ class PluginThread(angr.SimStatePlugin):
             nthread = None
             
         tsimgr = self.proj.factory.simulation_manager(tstate,threads=nthread)
-        tsimgr._techniques = []  
-        
+        tsimgr._techniques = []
+
         if not state:
             tstate.options.discard("LAZY_SOLVES")
             tstate.register_plugin("heap", angr.state_plugins.heap.heap_ptmalloc.SimHeapPTMalloc(heap_size =int(64*4096*10*10*10*4*2)))
@@ -262,20 +274,55 @@ class PluginThread(angr.SimStatePlugin):
             tsimgr.stashes["ExcessStep"] = []          
             tsimgr.stashes["deadbeef"] = []
             tsimgr.stashes["lost"] = []
-            
+
         self.sema_scdg.setup_stash(tsimgr)
-        
+
         tsimgr.active[0].globals["is_thread"] = True
-                            
+
         exploration_tech_thread = self.sema_scdg.get_exploration_tech(self.args, self.exp_dir, self.nameFileShort, tsimgr)
-        
+
         tsimgr.use_technique(exploration_tech_thread)
 
         self.log.info("\n------------------------------\nStart -State of simulation manager :\n "
                      + str(tsimgr)
                     + "\n------------------------------")
-                                
-        tsimgr.run()
+
+        # SYMNAV
+        # open a new SymNav GUI for threads (if cfg exists)
+        # don't work for the moment (cfg problems -> remove False when problem is fixed)
+        if self.args.symnav and False:
+            self.log.info(
+                "\n------------------------------\nStart - SymNav Thread: "
+                + "\n------------------------------"
+            )
+
+            aw = AngrWrapper(self.proj, os.path.join(JSON_DIR, "cfg_atb.json"), smgr=tsimgr, starting_state=tstate,
+                             concretize_addresses=True)
+            aw.init_run_thread()
+            aw.dump_symbtree(os.path.join(JSON_DIR, "symbolic_tree.json"))
+            aw.dump_leaves_info(os.path.join(JSON_DIR, "leaves.json"))
+            aw.dump_symbols(os.path.join(JSON_DIR, "symbols.json"))
+            aw.dump_coverage_loss(os.path.join(JSON_DIR, "coverage_loss.json"))
+
+            eel.init(WEB_DIR, allowed_extensions=['.js', '.html'])  # initialize interface
+            web_app_options = {
+                'mode': "chrome-app",
+                'port': 8081,
+                'chromeFlags': ["--aggressive-cache-discard", "--no-sandbox"]
+            }
+            eel.start('index.html', suppress_error=True,
+                      options=web_app_options)  # start interface. Ctrl+c to continue or close tab to kill
+
+            self.log.info(
+                "\n------------------------------\nEnd - SymNav Thread : "
+                + "\n------------------------------"
+            )
+
+        # END_SYMNAV
+
+        else:
+            tsimgr.run()
+
         self.sema_scdg.build_scdg_fin(self.exp_dir, self.nameFileShort, self.state.proj.loader.main_object, tstate, tsimgr)
         self.sema_scdg.build_ioc(self.exp_dir, self.nameFileShort, self.state.proj.loader.main_object, tstate, tsimgr)
         

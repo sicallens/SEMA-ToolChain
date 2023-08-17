@@ -119,8 +119,8 @@ class SemaExplorerCBFS(SemaExplorer):
                 self.pause_stash.append(simgr.active.pop())
                 excess = excess - 1
                 
-        while simgr.active:
-            self.pause_stash.append(simgr.active.pop())
+        #while simgr.active:
+        #    self.pause_stash.append(simgr.active.pop())
             
         while (
             len(simgr.stashes["new_addr"]) > 0

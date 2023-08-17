@@ -131,6 +131,8 @@ JSON_DIR = os.path.join(DATA_DIR, "json_data")
 
 aw = None
 state = None
+
+# Use to restart exploration with SymNav
 state_global = None
 state_stop = None
 simgr_stop = None
@@ -145,6 +147,7 @@ def prune_tree(filter_opts, commit):
     return res
 
 
+# Start a new exploration
 @eel.expose
 def new_exploration():
     print("===================== Starting A New Exploration =====================")
@@ -159,7 +162,8 @@ def new_exploration():
     simgr_stop.stashes["new_addr"] = []
     simgr_stop.stashes["ExcessLoop"] = []
     simgr_stop.stashes["ExcessStep"] = []
-    simgr_stop.stashes["temp"]
+    simgr_stop.stashes["deadbeef"] = []
+    simgr_stop.stashes["lost"] = []
 
     exploration_tech.simgr = simgr_stop
 
@@ -181,8 +185,14 @@ def continue_exploration(filter_opts, cont_data):
     global aw
     if aw is None: return {}
     aw.apply_filters(filter_opts, True)
+
+    # allow the user to exclude blocks/edges during the symbolic execution (make filter dynamic)
+    # can also be hardcoded before the run with a list of hexadecimal address for avoid_blocks
+    # and a list of tuples (start_address,end_address) for avoid_edges
+
     avoid_blocks = set()
     avoid_edges = set()
+
     for elem in filter_opts:
         # For classic filters
         try:
@@ -197,6 +207,7 @@ def continue_exploration(filter_opts, cont_data):
 
     #print(avoid_blocks)
     #print(avoid_edges)
+
     aw.run(
         10000,
         time_treshold=int(cont_data["time"]),
@@ -209,12 +220,12 @@ def continue_exploration(filter_opts, cont_data):
     res = aw.apply_filters([])
     return res
 
+
+# Allow user to stop the exploration and output scdg
 @eel.expose
 def stop_exploration():
     signal.raise_signal(signal.SIGINT)
 # END_SYMNAV
-
-
 
 
 class SemaSCDG:
@@ -231,18 +242,18 @@ class SemaSCDG:
         self,
         timeout=600,
         max_end_state=600,
-        max_step=10000000000000,
+        max_step=50000,
         timeout_tab=[1200, 2400, 3600],
-        jump_it=10000000000000000000000000,
-        loop_counter_concrete=10000000000000000000000000,
+        jump_it=1,
+        loop_counter_concrete=102400,
         jump_dict={},
         jump_concrete_dict={},
-        max_simul_state=1,
+        max_simul_state=5,
         max_in_pause_stach=500,
-        fast_main=False,
+        fast_main=True,
         force_symbolique_return=False,
         string_resolv=True,
-        print_on=True,
+        print_on=False,
         print_sm_step=False,
         print_syscall=False,
         debug_error=False,
@@ -745,15 +756,26 @@ class SemaSCDG:
         
 
         # TODO : Maybe useless : Try to directly go into main (optimize some binary in windows)
+        r = r2pipe.open(self.inputs)
+        out_r2 = r.cmd('f ~sym._main')
         addr_main = proj.loader.find_symbol("main")
         if addr_main and self.fast_main:
             addr = addr_main.rebased_addr
+        elif out_r2:
+            addr = None
+            try:
+                iter = out_r2.split("\n")
+                for s in iter:
+                    if s.endswith("._main"):
+                        addr = int(s.split(" ")[0], 16)
+            except:
+                pass
         else:
             addr = None
 
         # SYMNAV
         if args.symnav:
-            r = r2pipe.open(self.inputs)
+            #r = r2pipe.open(self.inputs)
             global aw
             global state
             global state_global
@@ -779,6 +801,8 @@ class SemaSCDG:
         # addr = 0x6f7100 # 0x5f4f10 0x01187c00 0x40139a
         # addr = 0x06fda90
         # addr = 0x06f7e90
+
+        #addr = 0x402bba
         
         # Create initial state of the binary
         if self.is_packed and self.unpack_mode == "symbion":
@@ -786,23 +810,16 @@ class SemaSCDG:
             options.add(angr.options.SYMBION_KEEP_STUBS_ON_SYNC) 
             #options.add(angr.options.SYNC_CLE_BACKEND_CONCRETE)
         else:
-            options = {angr.options.MEMORY_CHUNK_INDIVIDUAL_READS} #{angr.options.USE_SYSTEM_TIMES} # {angr.options.SIMPLIFY_MEMORY_READS} # angr.options.ZERO_FILL_UNCONSTRAINED_REGISTERS {angr.options.SYMBOLIC_INITIAL_VALUES
-            # options.add(angr.options.EFFICIENT_STATE_MERGING)
-            # options.add(angr.options.DOWNSIZE_Z3)
-            options.add(angr.options.USE_SYSTEM_TIMES)
-            # options.add(angr.options.OPTIMIZE_IR)
-            # options.add(angr.options.FAST_MEMORY)
+            # options = {angr.options.USE_SYSTEM_TIMES}
+            options = {angr.options.SIMPLIFY_MEMORY_READS}
+            options.add(angr.options.ZERO_FILL_UNCONSTRAINED_REGISTERS)
+            # options.add(angr.options.USE_SYSTEM_TIMES)
+            options.add(angr.options.ZERO_FILL_UNCONSTRAINED_MEMORY)
             options.add(angr.options.SIMPLIFY_MEMORY_READS)
             options.add(angr.options.SIMPLIFY_MEMORY_WRITES)
             options.add(angr.options.SIMPLIFY_CONSTRAINTS)
-            options.add(angr.options.SYMBOLIC_INITIAL_VALUES)
-            # options.add(angr.options.CPUID_SYMBOLIC)
-            options.add(angr.options.ZERO_FILL_UNCONSTRAINED_REGISTERS)
-            options.add(angr.options.ZERO_FILL_UNCONSTRAINED_MEMORY)
-            # options.add(angr.options.SYMBOL_FILL_UNCONSTRAINED_REGISTERS)
-            # options.add(angr.options.SYMBOL_FILL_UNCONSTRAINED_MEMORY)
-            # options.add(angr.options.MEMORY_CHUNK_INDIVIDUAL_READS)
             # options.add(angr.options.SYMBOLIC_WRITE_ADDRESSES)
+            options.add(angr.options.SYMBOLIC_INITIAL_VALUES)
             
             # options.add(angr.options.UNICORN)
             # options.add(angr.options.UNICORN_SYM_REGS_SUPPORT)
@@ -813,6 +830,7 @@ class SemaSCDG:
             # options.add(angr.options.TRACK_CONSTRAINT_ACTIONS)
             # options.add(angr.options.TRACK_JMP_ACTIONS)
 
+        #addr = 0x401ae0
         self.log.info("Entry_state address = " + str(addr))
         # Contains a program's memory, registers, filesystem data... any "live data" that can be changed by execution has a home in the state
         state = proj.factory.entry_state(
@@ -1325,7 +1343,6 @@ class SemaSCDG:
 
         # SYMNAV
         if args.symnav:
-            print('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa')
             sys.setrecursionlimit(100000)
             self.log.info(
                 "\n------------------------------\nStart - SymNav : "
@@ -1334,7 +1351,6 @@ class SemaSCDG:
 
             state_global = state.copy()
             proj_global = proj
-
             aw = AngrWrapper(proj, os.path.join(JSON_DIR, "cfg_atb.json"), smgr=simgr, starting_state=state,
                              concretize_addresses=True)
             aw.init_run()
@@ -1346,7 +1362,7 @@ class SemaSCDG:
             eel.init(WEB_DIR, allowed_extensions=['.js', '.html'])  # initialize interface
             web_app_options = {
                 'mode': "chrome-app",
-                'port': 8080,
+                'port': 8082,
                 'chromeFlags': ["--aggressive-cache-discard", "--no-sandbox"]
             }
             eel.start('index.html', suppress_error=True,
@@ -1361,6 +1377,7 @@ class SemaSCDG:
                 "\n------------------------------\nEnd - SymNav : "
                 + "\n------------------------------"
             )
+
         # END_SYMNAV
         
         else:

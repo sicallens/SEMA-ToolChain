@@ -1,4 +1,6 @@
 from .GetSystemInfo import GetSystemInfo
 
 class GetNativeSystemInfo(GetSystemInfo):
-    pass
+    def run(self, lpSystemInfo):
+        return 0x1
+
